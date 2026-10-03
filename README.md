@@ -121,7 +121,7 @@ Open your browser at `http://localhost:8501`.
 
 ---
 
-## ☁️ Deployment Guide
+##  Deployment Guide
 
 SentinelAgent is deployed using the Pak Angels zero-cost deployment pipeline:
 
