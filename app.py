@@ -44,14 +44,6 @@ st.markdown("""
     margin-bottom: 25px;
 }
 
-.security-card {
-    background-color: #0d1b2a;
-    border: 1px solid #20344d;
-    border-radius: 12px;
-    padding: 18px;
-    margin-bottom: 15px;
-}
-
 .status-safe {
     background-color: #123d2a;
     color: #6ff0a8;
@@ -76,9 +68,25 @@ st.markdown("""
     font-weight: 700;
 }
 
-.small-text {
+.auto-test {
+    background-color: #0d1b2a;
+    border: 1px solid #29445f;
+    border-radius: 10px;
+    padding: 15px;
+    margin-top: 5px;
+    margin-bottom: 15px;
+}
+
+.auto-test-title {
     color: #8fa2b8;
     font-size: 13px;
+    margin-bottom: 5px;
+}
+
+.auto-test-value {
+    color: #ffffff;
+    font-size: 20px;
+    font-weight: 700;
 }
 
 div[data-testid="stMetric"] {
@@ -368,6 +376,192 @@ PII_PATTERNS = {
 
 
 # ============================================================
+# AUTOMATIC SECURITY TEST CLASSIFICATION
+# ============================================================
+
+def detect_security_test(prompt):
+
+    text = prompt.lower().strip()
+
+    if not text:
+
+        return {
+            "name": "Waiting for Input",
+            "icon": "⚪",
+            "description": "Enter a prompt to automatically classify it.",
+            "type": "NONE"
+        }
+
+    # --------------------------------------------------------
+    # Prompt Injection
+    # --------------------------------------------------------
+
+    injection_patterns = [
+
+        r"\bignore\s+(all\s+)?previous\s+instructions\b",
+
+        r"\bdisregard\s+(all\s+)?previous\s+instructions\b",
+
+        r"\bforget\s+(all\s+)?previous\s+instructions\b",
+
+        r"\boverride\s+(the\s+)?instructions\b",
+
+        r"\bnew\s+instructions\b"
+    ]
+
+    for pattern in injection_patterns:
+
+        if re.search(
+            pattern,
+            text,
+            re.IGNORECASE
+        ):
+
+            return {
+                "name": "Prompt Injection Attack",
+                "icon": "🔴",
+                "description":
+                    "The prompt attempts to override or manipulate existing instructions.",
+                "type": "Prompt Injection"
+            }
+
+    # --------------------------------------------------------
+    # Jailbreak
+    # --------------------------------------------------------
+
+    jailbreak_patterns = [
+
+        r"\bdan\s+mode\b",
+
+        r"\bjailbreak\b",
+
+        r"\bdeveloper\s+mode\b",
+
+        r"\bbypass\s+(all\s+)?safety\b",
+
+        r"\bbypass\s+(all\s+)?restrictions\b",
+
+        r"\bremove\s+(all\s+)?restrictions\b",
+
+        r"\bno\s+safety\s+rules\b"
+    ]
+
+    for pattern in jailbreak_patterns:
+
+        if re.search(
+            pattern,
+            text,
+            re.IGNORECASE
+        ):
+
+            return {
+                "name": "Jailbreak Attack",
+                "icon": "🔴",
+                "description":
+                    "The prompt attempts to bypass model safety controls.",
+                "type": "Jailbreak"
+            }
+
+    # --------------------------------------------------------
+    # System Prompt Override
+    # --------------------------------------------------------
+
+    system_patterns = [
+
+        r"\breveal\s+(your\s+)?system\s+prompt\b",
+
+        r"\bshow\s+(me\s+)?your\s+system\s+prompt\b",
+
+        r"\bshow\s+(me\s+)?your\s+instructions\b",
+
+        r"\breveal\s+(your\s+)?hidden\s+instructions\b",
+
+        r"\bwhat\s+are\s+your\s+system\s+instructions\b",
+
+        r"\bignore\s+your\s+system\s+prompt\b"
+    ]
+
+    for pattern in system_patterns:
+
+        if re.search(
+            pattern,
+            text,
+            re.IGNORECASE
+        ):
+
+            return {
+                "name": "System Prompt Override",
+                "icon": "🔴",
+                "description":
+                    "The prompt attempts to obtain or override protected system instructions.",
+                "type": "System Prompt Override"
+            }
+
+    # --------------------------------------------------------
+    # Privilege Escalation
+    # --------------------------------------------------------
+
+    privilege_patterns = [
+
+        r"\bgive\s+me\s+administrator\s+access\b",
+
+        r"\bgive\s+me\s+admin\s+access\b",
+
+        r"\bgrant\s+me\s+root\s+access\b",
+
+        r"\bescalate\s+(my\s+)?privileges\b",
+
+        r"\bshow\s+me\s+the\s+credentials\b",
+
+        r"\bshow\s+me\s+admin\s+credentials\b"
+    ]
+
+    for pattern in privilege_patterns:
+
+        if re.search(
+            pattern,
+            text,
+            re.IGNORECASE
+        ):
+
+            return {
+                "name": "Privilege Escalation Attack",
+                "icon": "🔴",
+                "description":
+                    "The prompt requests elevated privileges or protected credentials.",
+                "type": "Privilege Escalation"
+            }
+
+    # --------------------------------------------------------
+    # PII / Sensitive Information
+    # --------------------------------------------------------
+
+    for entity, pattern in PII_PATTERNS.items():
+
+        if pattern.search(text):
+
+            return {
+                "name": "PII / Sensitive Data",
+                "icon": "🟡",
+                "description":
+                    f"The prompt contains potentially sensitive information: {entity}.",
+                "type": "PII"
+            }
+
+    # --------------------------------------------------------
+    # Normal request
+    # --------------------------------------------------------
+
+    return {
+        "name": "Normal / Safe Request",
+        "icon": "🟢",
+        "description":
+            "No predefined attack or sensitive-data pattern was detected.",
+        "type": "Normal"
+    }
+
+
+# ============================================================
 # LOAD LLM SETTINGS
 # ============================================================
 
@@ -469,7 +663,7 @@ def evaluate_threat(
             score += category_score
 
     # --------------------------------------------------------
-    # RAG / policy matching
+    # RAG / Policy matching
     # --------------------------------------------------------
 
     matched_policies = []
@@ -690,7 +884,7 @@ USER INPUT:
 
 
 # ============================================================
-# RCTC PROMPT FRAMEWORK
+# RCTC
 # ============================================================
 
 def build_rctc(prompt):
@@ -720,10 +914,6 @@ def build_rctc(prompt):
 
 def call_llm(prompt):
 
-    # --------------------------------------------------------
-    # No API key
-    # --------------------------------------------------------
-
     if not API_KEY:
 
         return (
@@ -737,17 +927,11 @@ def call_llm(prompt):
             "No API key configured."
         )
 
-    # --------------------------------------------------------
-    # Responses API endpoint
-    # --------------------------------------------------------
-
     url = f"{BASE_URL}/responses"
 
-    # --------------------------------------------------------
-    # Request body
-    # Temperature intentionally omitted because the selected
-    # model does not support that parameter.
-    # --------------------------------------------------------
+    # IMPORTANT:
+    # temperature is intentionally NOT included because
+    # the selected model does not support that parameter.
 
     payload = {
 
@@ -762,10 +946,6 @@ def call_llm(prompt):
     data = json.dumps(
         payload
     ).encode("utf-8")
-
-    # --------------------------------------------------------
-    # Request
-    # --------------------------------------------------------
 
     request = urllib.request.Request(
 
@@ -785,10 +965,6 @@ def call_llm(prompt):
         method="POST"
     )
 
-    # --------------------------------------------------------
-    # Send request
-    # --------------------------------------------------------
-
     try:
 
         with urllib.request.urlopen(
@@ -806,17 +982,13 @@ def call_llm(prompt):
             response_body
         )
 
-        # ----------------------------------------------------
-        # Preferred output_text
-        # ----------------------------------------------------
-
         answer = result.get(
             "output_text",
             ""
         )
 
         # ----------------------------------------------------
-        # Fallback parser
+        # Fallback output parser
         # ----------------------------------------------------
 
         if not answer:
@@ -852,10 +1024,6 @@ def call_llm(prompt):
                 collected_text
             ).strip()
 
-        # ----------------------------------------------------
-        # Empty answer
-        # ----------------------------------------------------
-
         if not answer:
 
             return (
@@ -876,10 +1044,6 @@ def call_llm(prompt):
 
             "OpenAI Responses API request successful."
         )
-
-    # --------------------------------------------------------
-    # HTTP error
-    # --------------------------------------------------------
 
     except urllib.error.HTTPError as e:
 
@@ -902,10 +1066,6 @@ def call_llm(prompt):
             f"HTTP {e.code}: {safe_error[:1200]}"
         )
 
-    # --------------------------------------------------------
-    # Network error
-    # --------------------------------------------------------
-
     except urllib.error.URLError as e:
 
         return (
@@ -916,10 +1076,6 @@ def call_llm(prompt):
 
             f"Network error: {str(e)}"
         )
-
-    # --------------------------------------------------------
-    # Other error
-    # --------------------------------------------------------
 
     except Exception as e:
 
@@ -1009,6 +1165,14 @@ def run_sentinel_agent(
     ).hexdigest()
 
     prompt_length = len(
+        prompt
+    )
+
+    # --------------------------------------------------------
+    # AUTOMATIC TEST CLASSIFICATION
+    # --------------------------------------------------------
+
+    automatic_test = detect_security_test(
         prompt
     )
 
@@ -1151,6 +1315,9 @@ def run_sentinel_agent(
                 2
             ),
 
+        "automatic_security_test":
+            automatic_test,
+
         "matched_policies":
             [
                 {
@@ -1233,10 +1400,6 @@ with st.sidebar:
 
     st.divider()
 
-    # --------------------------------------------------------
-    # LLM STATUS
-    # --------------------------------------------------------
-
     if LLM_CONNECTED:
 
         st.success(
@@ -1310,7 +1473,7 @@ st.markdown(
 
 
 # ============================================================
-# USER PROMPT
+# USER INPUT
 # ============================================================
 
 st.markdown(
@@ -1318,7 +1481,7 @@ st.markdown(
 )
 
 prompt = st.text_area(
-    "Enter any prompt you want SentinelAgent to inspect:",
+    "Enter any prompt:",
     height=180,
     placeholder=(
         "Example: Explain machine learning in simple words."
@@ -1326,9 +1489,43 @@ prompt = st.text_area(
     label_visibility="collapsed"
 )
 
+
+# ============================================================
+# AUTOMATIC SECURITY TEST DETECTION
+# ============================================================
+
+automatic_test = detect_security_test(
+    prompt
+)
+
+st.markdown(
+    "### Quick Security Test"
+)
+
+st.markdown(
+    f"""
+<div class="auto-test">
+
+<div class="auto-test-title">
+Automatically Detected Test
+</div>
+
+<div class="auto-test-value">
+{automatic_test["icon"]} {automatic_test["name"]}
+</div>
+
+<div class="auto-test-title" style="margin-top:8px;">
+{automatic_test["description"]}
+</div>
+
+</div>
+""",
+    unsafe_allow_html=True
+)
+
 st.caption(
-    "SentinelAgent automatically analyzes your prompt "
-    "for threats, sensitive information, and policy violations."
+    "This classification is generated automatically from "
+    "the prompt. No manual test selection is required."
 )
 
 
@@ -1435,6 +1632,25 @@ if st.button(
             )
 
         # ====================================================
+        # AUTOMATIC CLASSIFICATION RESULT
+        # ====================================================
+
+        st.markdown(
+            "## Automatic Security Classification"
+        )
+
+        classification = (
+            result["_internal"]
+            ["automatic_security_test"]
+        )
+
+        st.info(
+            f"{classification['icon']} "
+            f"**{classification['name']}** — "
+            f"{classification['description']}"
+        )
+
+        # ====================================================
         # RAW VS SANITIZED
         # ====================================================
 
@@ -1515,7 +1731,7 @@ if st.button(
             )
 
         # ====================================================
-        # RAG / POLICY VERIFICATION
+        # RAG / POLICY
         # ====================================================
 
         st.markdown(
@@ -1587,7 +1803,7 @@ if st.button(
 
             (
                 "1. Understand",
-                "Request analyzed and fingerprinted."
+                "Request analyzed and automatically classified."
             ),
 
             (
@@ -1655,10 +1871,6 @@ if st.button(
                 st.warning(
                     "🧪 Demo Mode: no external LLM was called."
                 )
-
-            # ------------------------------------------------
-            # CONNECTION DETAILS
-            # ------------------------------------------------
 
             with st.expander(
                 "LLM Connection Details"
@@ -1736,6 +1948,9 @@ if st.button(
                 datetime.now(
                     timezone.utc
                 ).isoformat(),
+
+            "automatic_security_test":
+                classification["name"],
 
             "action":
                 result["action"],
