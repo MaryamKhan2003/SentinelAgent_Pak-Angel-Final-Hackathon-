@@ -680,9 +680,9 @@ def call_llm(prompt):
         "instructions":
             SYSTEM_SAFETY_CONSTRAINTS,
 
-        "input": prompt,
+        "input": prompt
 
-        "temperature": 0.2
+        
     }
 
     data = json.dumps(
